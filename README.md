@@ -32,9 +32,7 @@ void setup() {
 }
 
 void loop {
-  if (scc.receiveCommandInput()) {
-    scc.runSelectedCommand();
-  }
+  scc.update();
 }
 ```
 Now, (e.g. using the Arduino IDE and Serial Monitor), when you enter the text **lampTest** in the Serial Monitor, the function ```performLampTest()``` will execute each time the member function ```runSelectedCommand()``` is called. In the example above this will only occur once each time the registered command **lampTest** is entered.

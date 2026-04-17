@@ -9,7 +9,6 @@
  *
 **/
 #include <Arduino.h>
-#include <math.h>
 #include "SerialCommandCoordinator.h"
 
 SerialCommandCoordinator::SerialCommandCoordinator(Stream &device) : _device(&device) {
@@ -41,40 +40,32 @@ SerialCommandCoordinator::~SerialCommandCoordinator() {
 }
 
 bool SerialCommandCoordinator::receiveInput() {
-  uint8_t ndx = 0;
-  bool newInput = false;
   char rc;
+
   if (_device->available() > 0){
-    delay(_inputDelay);
-    while (_device->available() > 0 && newInput == false) {
-      rc = _device->read();
+    rc = _device->read();
 
-      if (rc != _endMarker && ndx < _inputBufferSize - 1) {
-        _inputBuffer[ndx] = rc;
-        ndx++;
-
+    if (rc != _endMarker) {
+      // check for buffer overflow
+      if (_bufferIndex < _inputBufferSize - 1) {
+        _inputBuffer[_bufferIndex] = rc;
+        _bufferIndex++;
       } else {
-        _inputBuffer[ndx] = '\0'; // terminate the string
-        newInput = true;
-
-        if (rc != _endMarker && ndx >= _inputBufferSize - 1) {
-          _inputValid = false; // input string too large for buffer
-
-          while (_device->available() > 0 ) { 
-            while (_device->available() > 0 ) {
-              _device->read(); // clear the remaining serial buffer
-            }
-            delay(_deviceDelay);
-          }
-
-        } else {
-          _inputValid = true;
-        }
+        // buffer is full
+        _inputBuffer[_bufferIndex] = '\0'; // terminate the string
+        _inputValid = false; // input string too large for buffer
+        _bufferIndex = 0;
+        return true; // 
       }
+    } else {
+      // end marker reached
+      _inputBuffer[_bufferIndex] = '\0';
+      _bufferIndex = 0; // reset index for the next command
+      _inputValid = true;
+      return true;
     }
   }
-
-  return newInput && _inputValid;
+  return false; // full command not recieved yet
 }
 
 bool SerialCommandCoordinator::receiveCommandInput() {
@@ -86,14 +77,6 @@ bool SerialCommandCoordinator::receiveCommandInput() {
 
 void SerialCommandCoordinator::printInputBuffer() {
   _device->println(_inputBuffer);
-}
-
-void SerialCommandCoordinator::setBaudRate(long baudRate) {
-  if (baudRate <= 0) {
-    return;
-  }
-  _inputDelay = ceil(1000.0 / ((double)(baudRate / 10) / (double)_inputBufferSize)) ; // 1000 for ms conversion
-  _deviceDelay = ceil(1000.0 / ((double)(baudRate / 10) / 64.0)); // 64 is Arduino standard serial buffer size
 }
 
 bool SerialCommandCoordinator::registerCommand(const char *command, const void (*function)(void)) {
@@ -130,6 +113,12 @@ bool SerialCommandCoordinator::registerCommand(const char *command, const void (
   _functionList[ndx] = function;
   return true;
 
+}
+
+void SerialCommandCoordinator::update() {
+  if (receiveCommandInput()) {
+    runSelectedCommand();
+  }
 }
 
 void SerialCommandCoordinator::runSelectedCommand() {

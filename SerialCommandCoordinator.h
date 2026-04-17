@@ -45,6 +45,10 @@ class SerialCommandCoordinator
     // or allocation of memory to store command fails. Returns true on success.
     bool registerCommand(const char *command, const void (*function)(void));
 
+    // Checks for new serial data and executes a matching command if a full line
+    // is recieved.
+    void update();
+
     // If the last call to receiveCommandInput() is successful, will run the most
     // recently selected function matching a valid command from the _commandList.
     void runSelectedCommand();
@@ -54,9 +58,6 @@ class SerialCommandCoordinator
 
     // Prints the current value stored in the _inputBuffer.
     void printInputBuffer();
-
-    // Sets the appropriate delay time for reading long strings of text from the input _device.
-    void setBaudRate(long baudRate);
 
     // Returns a pointer to the _inputBuffer for use outside of the class.
     const char* getSerialBuffer();
@@ -74,25 +75,17 @@ class SerialCommandCoordinator
     bool setSelectedFunction();
 
     Stream *_device = nullptr;        // Address to input stream.
-    uint8_t _deviceDelay = 67;        // *Minimum delay in ms, at the provided baud rate, to fill the _device buffer
+    uint8_t _bufferIndex = 0;         // Current position in _inputBuffer; persists between calls for non-blocking reads.
     char _endMarker = '\n';           // Designated end marker for input stream.
 
     bool _inputValid = false;         // State of input buffer fitting entirely within the _inputBuffer.
     uint8_t _inputBufferSize = 32;    // Size of the _inputBuffer to be allocated.
-    uint8_t _inputDelay = 34;         // *Minimum delay in ms, at the provided baud rate, to fill the _inputBuffer
     char *_inputBuffer = nullptr;     // Input buffer address for stream input.
 
     uint8_t _commandListSize = 8;           // Shared index for commands and functions.
     char **_commandList = nullptr;          // List of addresses for registered commands.
     func_ptr_t *_functionList = nullptr;    // List of addresses for registered functions.
     func_ptr_t _functionSelected = nullptr; // Selected function to be run with runSelectedCommand().
-
-    // * Initial delay value is based on 9600 baud rate using the following conversion:
-    //    => 1 / ( (baud rate bytes / sec) / buffer-size bytes) 
-    //      => assuming 1 byte is 10 bits (1 start & 1 stop bit)
-    //    => _inputDelay  = 1000 / ( (960 bytes / sec) / _inputBufferSize() bytes ) (e.g. based on 32 byte buffer size)
-    //    => _deviceDelay = 1000 / ( (960 bytes / sec) / SERIAL_BUFFER_SIZE bytes ) (e.g. hardcoded as 64 in HardwareSerial.cpp for Arduino ecosystem)
-
 };
 
 #endif /* SERIALCOMMANDCOORDINATOR_h */
