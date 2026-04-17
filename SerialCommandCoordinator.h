@@ -21,15 +21,11 @@ class SerialCommandCoordinator
     SerialCommandCoordinator(Stream *device);
     virtual ~SerialCommandCoordinator();
 
-    // Checks if there is data available in the serial receive buffer. If
-    // there is, it copies the data byte by byte into _inputBuffer until the 
-    // predefined _endMarker is reached (preset to \n) and sets _inputValid to
-    // true. If the serial stream would overflow _inputBufferSize, the
-    // data is truncated (to _inputBufferSize - 2), and a null terminator is
-    // appended at the end of the _inputBuffer (_inputBufferSize - 1) instead 
-    // of where _endMarker defines. The remaining data in the serial receive
-    // buffer is emptied and _inputValid is set to false. Returns _inputValid
-    // if new input data is available, else returns false. 
+    // Checks the serial stream for available data without blocking. 
+    // If bytes are present, they are appended to _inputBuffer at _bufferIndex.
+    // Returns true only when the _endMarker is detected (completing a command) 
+    // or the buffer overflows. Returns false if the command is still incomplete 
+    // or no data is available, allowing the main loop to continue.
     bool receiveInput();
 
     // First calls receiveInput. If receiveInput is successful, _inputBuffer
