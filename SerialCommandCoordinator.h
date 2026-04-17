@@ -107,6 +107,31 @@ class SerialCommandCoordinator
       }
     }
 
+    /**
+     * @brief Checks the serial stream for the designated break character to exit a local loop.
+     * * This allows a function that is executing its own internal loop to poll the stream 
+     * for a termination signal. It uses peek() to check the next available character 
+     * without consuming it unless it matches the _breakChar.
+     * * @return true if the break character was detected and consumed.
+     */
+    bool checkForBreak() {
+      if (_device->available() > 0) {
+        if (_device->peek() == _breakChar) {
+          _device->read(); // Consume the break character
+          return true; 
+        }
+      }
+      return false;
+    }
+
+    /**
+     * @brief Sets the character used to signal an abort or break from a loop.
+     * @param c The character to look for (default is often 'q' or ESC).
+     */
+    void setBreakChar(char c) {
+      _breakChar = c;
+    }
+
     /** @brief Prints the current value stored in the _inputBuffer. */
     void printInputBuffer() {
       _device->println(_inputBuffer);
@@ -114,11 +139,6 @@ class SerialCommandCoordinator
 
     /** @brief Returns a pointer to the _inputBuffer for use outside of the class. */
     const char* getSerialBuffer() { return _inputBuffer; }
-    
-    /** @brief Stream test function. Prints a single line to the stream reference for testing purposes. */
-    void testStream() {
-      _device->println(F("Hello World!")); 
-    }
 
   private:
     typedef void(*func_ptr_t)(void);
@@ -209,6 +229,7 @@ class SerialCommandCoordinator
     Stream *_device = nullptr;        ///< Address to input stream.
     uint8_t _bufferIndex = 0;         ///< Current position in _inputBuffer; persists between calls for non-blocking reads.
     char _endMarker = '\n';           ///< Designated end marker for input stream.
+    char _breakChar = 'q';            ///< Character used to signal an abort from looping functions.
     bool _discarding = false;         ///< State used to ignore characters after an overflow until _endMarker.
 
     bool _inputValid = false;         ///< State of input buffer fitting entirely within the _inputBuffer.

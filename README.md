@@ -41,6 +41,36 @@ void loop() {
 }
 ```
 
+### Breaking Out of Loops
+When a registered function initiates a persistent execution loop (e.g., a continuous sensor polling routine), it occupies the processor's execution context, preventing the primary `SerialCommandCoordinator::update()` cycle from monitoring the serial stream. To maintain interactivity without exiting the local scope, the `checkForBreak()` method enables the function to perform a non-blocking poll of the serial buffer for a specific termination signal.
+
+```
+void scaleTest() {
+  Serial.println(F("Scale Test active. Press 'q' to stop."));
+  
+  while (true) {
+    // Perform diagnostic work
+    printScaleData();
+
+    // Check for the break character (default is 'q')
+    if (scc.checkForBreak()) {
+      Serial.println(F("Exiting Test..."));
+      return; // Jumps back to scc.update() in the main loop
+    }
+  }
+}
+```
+
+### Customizing the Break Signal
+You can change the character used to trigger a break at any time.
+```
+void setup() {
+  Serial.begin(9600);
+  scc.setBreakChar('x'); // Change break character to 'x'
+  scc.registerCommand(F("scaleTest"), &scaleTest);
+}
+```
+
 ### Advanced Initialization
 Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source:
 ```
