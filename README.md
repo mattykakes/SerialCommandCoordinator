@@ -61,6 +61,59 @@ void scaleTest() {
 }
 ```
 
+### Passing Parameters
+To maintain a minimal memory footprint, the library provides a command-length agnostic method for retrieving arguments. The getParam() method scans the internal buffer for the first space delimiter and returns a zero-copy pointer to the start of the parameter payload.
+
+```
+void setMotorSpeed() {
+  // Automatically locates the data following the command
+  const char* param = scc.getParam();
+  
+  if (param != nullptr) {
+    int speed = atoi(param);
+    analogWrite(MOTOR_PIN, speed);
+    
+    Serial.print(F("Motor speed set to: "));
+    Serial.println(speed);
+  } else {
+    Serial.println(F("Error: No parameter provided."));
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  scc.registerCommand(F("speed"), &setMotorSpeed);
+}
+```
+
+### Interactive Sub-Modules
+For complex diagnostics like sensor calibration or manual motor stepping, you can enter a dedicated execution loop. This allows the system to process single-character instructions instantly.
+
+    Engineering Note: Do not use getParam() inside a persistent while loop. Because getParam() relies on the internal buffer populated by the main update() cycle, calling it within a local loop will result in a logic spinlock, where the function reads stale data indefinitely. For real-time interactivity, use readChar().
+```
+void manualStepMode() {
+  Serial.println(F("Manual Mode: [+] Forward, [-] Backward, [!] Exit"));
+  
+  while (true) {
+    // 1. Check for the template-defined break character ('!')
+    if (scc.checkForBreak()) {
+      Serial.println(F("Exiting..."));
+      return; 
+    }
+
+    // 2. Use readChar() for real-time stream interaction
+    char input = scc.readChar();
+    
+    if (input == '+') {
+      stepMotor(1);
+    } else if (input == '-') {
+      stepMotor(-1);
+    }
+  }
+}
+```
+
+
 ### Advanced Initialization
 Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source as well as the loop break character and serial end marker:
 ```

@@ -129,6 +129,50 @@ class SerialCommandCoordinator
       return false;
     }
 
+    /**
+     * @brief Returns a pointer to the start of the parameters trailing the command.
+     * * Scans for the first space delimiter and increments past any whitespace 
+     * to find the actual payload.
+     * * @return A pointer to the parameter payload, or nullptr if no parameters exist.
+     */
+    const char* getParam() {
+        const char* buf = getSerialBuffer();
+        size_t i = 0;
+
+        // 1. Scan until we hit a space or the end of the null-terminated string
+        while (buf[i] != ' ' && buf[i] != '\0') {
+            i++;
+        }
+
+        // 2. If we found a space, skip over ALL consecutive spaces 
+        // to find the start of the actual data.
+        while (buf[i] == ' ') {
+            i++;
+        }
+
+        // 3. If we aren't at the end of the string, this is our parameter start.
+        if (buf[i] != '\0') {
+            return &buf[i];
+        }
+
+        return nullptr; // No valid parameters found
+    }
+
+    /**
+     * @brief Polls the stream for a single character, ignoring the END_MARKER.
+     * @return The character read, or 0 if no data is available.
+     */
+    char readChar() {
+        if (_device->available() > 0) {
+            char c = _device->read();
+            // Ignore the end marker so it doesn't interfere with logic loops
+            if (c != END_MARKER && c != '\r') {
+                return c;
+            }
+        }
+        return 0;
+    }
+
     /** @brief Prints the current value stored in the _inputBuffer. */
     void printInputBuffer() {
       _device->println(_inputBuffer);
@@ -153,7 +197,7 @@ class SerialCommandCoordinator
       while (_device->available() > 0) {
         rc = _device->read();
 
-        if (rc != END_MARKER) {
+        if (rc == '\r' && rc != END_MARKER) {
           if (_discarding) continue; 
 
           // check for buffer overflow
