@@ -1,0 +1,8 @@
+name: 'Universal Serial Command Test'
+version: 1
+steps:
+  - wait-serial: 'Ready for commands...'
+  - write-serial: "speed 255\n"
+  - wait-serial: 'Motor speed set to: 255'
+  - write-serial: "!" 
+  - wait-serial: 'Exiting...'

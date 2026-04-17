@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "author": "Matty Kakes Makes",
+  "editor": "wokwi",
+  "parts": [
+    { "id": "mcu", "type": "wokwi-arduino-uno", "left": 0, "top": 0 }
+  ],
+  "connections": []
+}

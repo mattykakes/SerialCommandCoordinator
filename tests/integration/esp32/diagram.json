@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "author": "Matty Kakes Makes",
+  "parts": [
+    { "id": "mcu", "type": "wokwi-esp32-devkit-v1", "left": 0, "top": 0 }
+  ],
+  "connections": []
+}

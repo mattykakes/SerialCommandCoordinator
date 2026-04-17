@@ -6,35 +6,52 @@ on:
   pull_request:
     branches: [ main ]
 
-# Prevents multiple runs from clashing; cancels in-progress runs on the same PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  compile:
+  # --- STAGE 1: COMPILATION ---
+  compile_test:
     runs-on: ubuntu-latest
+    outputs:
+      # We extract the 'include' array from the matrix and filter for simulate == true
+      sim_matrix: ${{ steps.filter.outputs.matrix }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: "Arduino Uno (ATmega328P)"
+          - name: "Arduino-Uno"
             board: "arduino:avr:uno"
             platform: "arduino:avr"
-          - name: "Arduino Mega 2560"
+            board_type: "uno"
+            simulate: true
+          - name: "Arduino-Mega-2560"
             board: "arduino:avr:mega"
             platform: "arduino:avr"
-          - name: "ESP32 Dev Module"
+            board_type: "mega"
+            simulate: false
+          - name: "ESP32-Dev-Module"
             board: "esp32:esp32:esp32"
             platform: "esp32:esp32"
             index_url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
-          - name: "Arduino Zero (SAMD21)"
+            board_type: "esp32"
+            simulate: true
+          - name: "Arduino-Zero"
             board: "arduino:samd:arduino_zero_native"
             platform: "arduino:samd"
+            board_type: "samd21"
+            simulate: false
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      # Filters the matrix and saves only simulate:true items for the next job
+      - id: filter
+        run: |
+          FILTERED=$(echo '${{ toJson(matrix) }}' | jq -c 'select(.simulate == true)')
+          echo "matrix={\"include\":[$FILTERED]}" >> $GITHUB_OUTPUT
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v1
@@ -48,10 +65,43 @@ jobs:
             arduino-cli core install ${{ matrix.platform }}
           fi
 
-      - name: Compile Examples
+      - name: Compile and Stage Binaries
         run: |
-          # This loops through every .ino file in your examples folder
-          for example in examples/*/*.ino; do
-            echo "Compiling $example for ${{ matrix.name }}..."
-            arduino-cli compile --library . -b ${{ matrix.board }} "$example"
-          done
+          mkdir -p ./artifacts/${{ matrix.name }}
+          arduino-cli compile --library . -b ${{ matrix.board }} examples/BasicUsage/BasicUsage.ino --output-dir ./artifacts/${{ matrix.name }}
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.name }}-${{ github.run_id }}
+          path: ./artifacts/${{ matrix.name }}/
+          retention-days: 1
+
+  # --- STAGE 2: INTEGRATION ---
+  integration_test:
+    needs: compile_test 
+    runs-on: ubuntu-latest
+    # If no boards are marked for simulation, this job is skipped entirely
+    if: ${{ needs.compile_test.outputs.sim_matrix != '{"include":[]}' }}
+    strategy:
+      fail-fast: false
+      # We inject the filtered JSON from Job 1 here
+      matrix: ${{ fromJson(needs.compile_test.outputs.sim_matrix) }}
+            
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Binary for Simulation
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries-${{ matrix.name }}-${{ github.run_id }}
+          path: ./sim-build
+
+      - name: Run Wokwi Simulation
+        uses: wokwi/wokwi-ci-action@v1
+        with:
+          token: ${{ secrets.WOKWI_CLI_TOKEN }}
+          path: ./tests/integration/${{ matrix.board_type }}
+          scenario: '../universal_test.yaml'
+          expect_text: 'Motor speed set to: 255'
