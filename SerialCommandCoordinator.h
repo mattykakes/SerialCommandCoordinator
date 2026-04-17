@@ -33,7 +33,12 @@
  * * @tparam MAX_COMMANDS Maximum number of commands that can be registered.
  * @tparam BUFFER_SIZE Size of the internal RX buffer (defaults to half of hardware buffer).
  */
-template<size_t MAX_COMMANDS = 8, uint8_t BUFFER_SIZE = (SERIAL_RX_BUFFER_SIZE / 2)>
+template<
+  size_t MAX_COMMANDS = 8,
+  uint8_t BUFFER_SIZE = (SERIAL_RX_BUFFER_SIZE / 2),
+  char DEFAULT_BREAK = '!',
+  char END_MARKER = '\n'
+>
 class SerialCommandCoordinator
 {
   public:
@@ -79,7 +84,7 @@ class SerialCommandCoordinator
     /**
      * @brief The primary non-blocking execution entry point.
      * * Checks for new serial data and executes a matching command if a full line 
-     * (ending in _endMarker) is received. Should be called once per loop().
+     * (ending in END_MARKER) is received. Should be called once per loop().
      */
     void update() {
       if (receiveCommandInput()) {
@@ -111,25 +116,17 @@ class SerialCommandCoordinator
      * @brief Checks the serial stream for the designated break character to exit a local loop.
      * * This allows a function that is executing its own internal loop to poll the stream 
      * for a termination signal. It uses peek() to check the next available character 
-     * without consuming it unless it matches the _breakChar.
+     * without consuming it unless it matches the DEFAULT_BREAK.
      * * @return true if the break character was detected and consumed.
      */
     bool checkForBreak() {
       if (_device->available() > 0) {
-        if (_device->peek() == _breakChar) {
+        if (_device->peek() == DEFAULT_BREAK) {
           _device->read(); // Consume the break character
           return true; 
         }
       }
       return false;
-    }
-
-    /**
-     * @brief Sets the character used to signal an abort or break from a loop.
-     * @param c The character to look for (default is often 'q' or ESC).
-     */
-    void setBreakChar(char c) {
-      _breakChar = c;
     }
 
     /** @brief Prints the current value stored in the _inputBuffer. */
@@ -146,7 +143,7 @@ class SerialCommandCoordinator
     /**
      * @brief Checks the serial stream for available data without blocking. 
      * * If bytes are present, they are appended to _inputBuffer at _bufferIndex.
-     * Returns true only when the _endMarker is detected (completing a command) 
+     * Returns true only when the END_MARKER is detected (completing a command) 
      * or the buffer overflows. Returns false if the command is still incomplete 
      * or no data is available, allowing the main loop to continue.
      */
@@ -156,7 +153,7 @@ class SerialCommandCoordinator
       while (_device->available() > 0) {
         rc = _device->read();
 
-        if (rc != _endMarker) {
+        if (rc != END_MARKER) {
           if (_discarding) continue; 
 
           // check for buffer overflow
@@ -228,9 +225,7 @@ class SerialCommandCoordinator
 
     Stream *_device = nullptr;        ///< Address to input stream.
     uint8_t _bufferIndex = 0;         ///< Current position in _inputBuffer; persists between calls for non-blocking reads.
-    char _endMarker = '\n';           ///< Designated end marker for input stream.
-    char _breakChar = 'q';            ///< Character used to signal an abort from looping functions.
-    bool _discarding = false;         ///< State used to ignore characters after an overflow until _endMarker.
+    bool _discarding = false;         ///< State used to ignore characters after an overflow until END_MARKER.
 
     bool _inputValid = false;         ///< State of input buffer fitting entirely within the _inputBuffer.
     char _inputBuffer[BUFFER_SIZE] = {0}; ///< Input buffer address for stream input. Stored statically (Zero-Heap).

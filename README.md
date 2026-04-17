@@ -46,13 +46,13 @@ When a registered function initiates a persistent execution loop (e.g., a contin
 
 ```
 void scaleTest() {
-  Serial.println(F("Scale Test active. Press 'q' to stop."));
+  Serial.println(F("Scale Test active. Press '!' to stop."));
   
   while (true) {
     // Perform diagnostic work
     printScaleData();
 
-    // Check for the break character (default is 'q')
+    // Check for the break character (default is '!')
     if (scc.checkForBreak()) {
       Serial.println(F("Exiting Test..."));
       return; // Jumps back to scc.update() in the main loop
@@ -61,21 +61,17 @@ void scaleTest() {
 }
 ```
 
-### Customizing the Break Signal
-You can change the character used to trigger a break at any time.
-```
-void setup() {
-  Serial.begin(9600);
-  scc.setBreakChar('x'); // Change break character to 'x'
-  scc.registerCommand(F("scaleTest"), &scaleTest);
-}
-```
-
 ### Advanced Initialization
-Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source:
+Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source as well as the loop break character and serial end marker:
 ```
-// Custom sizing: support for 12 commands and a larger 64-byte buffer
+// Default: 8 commands, 32-byte buffer, '!' break, '\n' end
+SerialCommandCoordinator<> scc(Serial); 
+
+// Custom sizing: 12 commands, 64-byte buffer
 SerialCommandCoordinator<12, 64> scc(Serial);
+
+// Full protocol override: 10 commands, 32-byte buffer, q break, CR end marker
+SerialCommandCoordinator<10, 32, 'q', '\r'> scc(Serial);
 ```
 
 ## Considerations
