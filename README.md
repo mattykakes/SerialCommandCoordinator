@@ -1,21 +1,21 @@
 # SerialCommandCoordinator
 
-## Origin
-I was working on a control system prototype and wanted a more interacve way to jump between diagnostic modes when working with an Arduino board, and its connected peripherals, than maintaining multiple sketch versions and flashing the board each time I needed to run it in a different mode. The solution had to have a compact enough memory footprint to be useful on the ATmega328P, yet verbose enough that someone could connect to it via a serial port to run these diagnostics. I couldn't find an open source library I felt was both efficient and simple enough so I wrote my own.
-
 ## How it Works
-Given an initialized serial stream in the Arduino ecosystem that inherits from Stream (e.g. HardwareSerial or SoftwareSerial), the SerialCommandCoordinator maps a registered serial command, in the form of null terminated character array, received from said stream to functions via a function's memory address. These values are stored and accessed via two, parallel, unsorted arrays allocated on the heap. Since the number of commands will likely be small, performing a search of an unsorted array for mode switching is sufficient as memory footprint is valued over latency.
+The **SerialCommandCoordinator** maps serial string commands to function addresses without using the heap, making it ideal for memory-constrained environments like the ATmega328P. 
 
+Unlike previous versions that relied on dynamic memory, this revamped library uses **C++ Templates** to allocate command lists and buffers statically at compile-time. Command strings are stored directly in **Program Memory (Flash)** using the `F()` macro, ensuring that SRAM is preserved for your application logic. The library operates using a non-blocking state machine, allowing your main loop to continue running while serial data is being gathered.
 
 ## How to Use It
 ### Main Workflow
-The main workflow for using the SerialCommandCoordinator is as follows:
-1. Initialize the serial stream and SerialCommandCoordinator object
-2. Register a command with function
-3. Wait for input and run the command if matching input arrives
-``` C++
+1. **Initialize**: Declare the object as a template. You can specify the maximum number of commands and the buffer size, or use the optimized defaults.
+2. **Register**: Map string literals (in Flash) to `void` functions.
+3. **Update**: Call `update()` in your main loop to automatically handle input and execution.
 
-SerialCommandCoordinator scc(Serial);
+```cpp
+#include <SerialCommandCoordinator.h>
+
+// Initialize with defaults: 8 commands, 32-byte buffer
+SerialCommandCoordinator<> scc(Serial);
 
 void performLampTest() {
   // code to turn on and off lamp
@@ -27,82 +27,33 @@ void scaleTest() {
 
 void setup() {
   Serial.begin(9600);
-  scc.registerCommand("lampTest", &performLampTest);
-  scc.registerCommand("scaleTest", &performScaleTest);
+  
+  // Register commands using the F() macro to save SRAM
+  scc.registerCommand(F("lampTest"), &performLampTest);
+  scc.registerCommand(F("scaleTest"), &scaleTest);
 }
 
-void loop {
+void loop() {
+  // Non-blocking update: checks serial and runs commands automatically
   scc.update();
+  
+  // Your other application code runs freely here
 }
 ```
-Now, (e.g. using the Arduino IDE and Serial Monitor), when you enter the text **lampTest** in the Serial Monitor, the function ```performLampTest()``` will execute each time the member function ```runSelectedCommand()``` is called. In the example above this will only occur once each time the registered command **lampTest** is entered.
 
-### Setting an Exit Case
-There may be instances where it would be advantageous to return to the **receiveCommandInput** loop defined in the previous section. This is just one example of how to exit an operation back to a SerialCommandCoordinator loop, or even exit a SerialCommandCoordinator mode:
-``` C++
-bool inDiagnosticMode = true;
-
-void scaleTest() {
-  bool exec = true;
-  while (exec) {
-    printFormattedScaleValues();
-
-    if (Serial.available()) {
-      char temp = Serial.read();
-      if(temp == 'q') {
-        clearSerialBuffer();
-        exec = false;
-      } 
-    }
-  }
-}
-
-void diagnosticMode() {
-  SerialCommandCoordinator scc(Serial);
-  scc.registerCommand("scaleTest", &scaleTest);
-  scc.registerCommand("buttonTest", &buttonTest);
-  scc.printCommandList();
-
-  while (inDiagnosticMode) {
-    if (scc.receiveCommandInput()) {
-      scc.runSelectedCommand();
-      scc.printCommandList();
-    }
-  }
-
-}
+### Advanced Initialization
+Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source:
 ```
-Note: There are plans to internalize this inside the class to allow for more flexability in use case.
+// Custom sizing: support for 12 commands and a larger 64-byte buffer
+SerialCommandCoordinator<12, 64> scc(Serial);
+```
 
-### Considerations
-#### Initialization and Destruction
-There is not a way to remove or change registered commands as the intent is to initialize once and use either throughout the duration of a program, or until the object is destroyed. This design choice was made in an attempt to reduce the chance of memory fragmentation on the heap, as well as keep the memory footprint of the SerialCommandCoordinator object small.
+## Considerations
+### Zero-Heap Allocation
+This library has been re-engineered to eliminate malloc, free, and calloc. All arrays are fixed-size and allocated in the Static Data section of the RAM. This prevents runtime crashes due to heap fragmentation and allows the compiler to provide accurate memory usage reports during the build process.
 
-Note: There are plans to change the allocation of the buffers containing only references to non-managed memory to be allocated on the stack instead of the heap in additional overloaded constructors.
+### Non-Blocking & Overflow Protection
+The library no longer uses delay() or timing-based reads. It features a Discarding State: if an incoming command exceeds the defined BUFFER_SIZE, the utility enters a non-blocking "ignore" mode until the next newline is reached. This protects the system from processing "garbage" data without halting your program.
 
-#### Baud Rate
-The initial baud rate is set to 9600. If set different in Serial.begin(), the baud rate should also be set for the SerialCommandCoordinator using ```setBaudRate()```. This is to prevent a race condition where the entirety of the serial buffer is read such that the stream.available() shows no new data is present, but no ending character is reached. This can cause data that fills the serial buffer to treated as new input again when it is, instead, intended to be part of the previous input string. The delay equates for the minimum theoretical delay it should take to fill the Arduino's predefined 64 byte serial buffer based on the baud rate, between reads of said buffer.
-
-Note: There are plans to add this to an overload of the class constructor.
-
-#### Limit on Commands
-The command list size is currently set to 8 commands. The functions referenced do not support parameters and should be of void return type.
-
-Note: There are plans to add a command list size to an overload of the class constructor. 
- 
- ### Public Members
- This is a quick reference. Detailed descriptions of these members can be found in the SerialCommandCoordinator.h file
- ``` C++
-SerialCommandCoordinator(Stream &device);
-SerialCommandCoordinator(Stream *device);
-virtual ~SerialCommandCoordinator();
-bool receiveInput();
-bool receiveCommandInput();
-bool registerCommand(const char *command, const void (*function)(void));
-void runSelectedCommand();
-void printCommandList();
-void printInputBuffer();
-void setBaudRate(long baudRate);
-const char* getSerialBuffer();
-void testStream();  
- ```
+### Flash Memory (PROGMEM)
+To maximize SRAM efficiency on 8-bit AVR boards, all registered command strings are stored in Flash. This is why the F() macro is required during registration. On 32-bit boards (ESP32, ARM), the library automatically aliases to compatible types, maintaining a unified codebase.
