@@ -115,4 +115,6 @@ jobs:
           expect_text: 'SYSTEM_READY'
           # Increase to 30 seconds for 32-bit bootloaders
           timeout: 30000
+          # This enables the detailed serial trace in the logs
+          args: '--verbose'
           
