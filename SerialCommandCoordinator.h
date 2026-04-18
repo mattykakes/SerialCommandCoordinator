@@ -58,8 +58,7 @@ class SerialCommandCoordinator
      * @return Fails and returns false if the command is already in the list, 
      * the list is full, or nullptr is an argument. Returns true on success.
      */
-    bool registerCommand(const __FlashStringHelper *command, const void (*function)(void)) {
-      if (command == nullptr || function == nullptr) {
+bool registerCommand(const __FlashStringHelper *command, void (*function)(void)) {      if (command == nullptr || function == nullptr) {
         return false;
       }
       

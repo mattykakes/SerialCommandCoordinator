@@ -9,7 +9,7 @@ void handlePing() {
 }
 
 void handleSetLimit() {
-  const char* val = scc.getParam(); // Access global scc [cite: 10]
+  const char* val = scc.getParam(); // Access global scc
   if (val) {
     Serial.print(F("LIMIT_SET:"));
     Serial.println(val);
@@ -29,16 +29,16 @@ void handleJog() {
 void setup() {
   Serial.begin(115200);
 
-  // TEST 1 & 2: Wrap strings in F() to match __FlashStringHelper* [cite: 9]
+  // TEST 1 & 2: Wrap strings in F() to match __FlashStringHelper*
   scc.registerCommand(F("ping"), handlePing);
 
-  // TEST 3 & 4: Command WITH parameters [cite: 10]
+  // TEST 3 & 4: Command WITH parameters
   scc.registerCommand(F("set-limit"), handleSetLimit);
 
-  // TEST 5: Status check [cite: 11]
+  // TEST 5: Status check
   scc.registerCommand(F("status"), handleStatus);
 
-  // TEST 6: Interactive Command [cite: 12]
+  // TEST 6: Interactive Command
   scc.registerCommand(F("jog"), handleJog);
 
   Serial.println(F("SYSTEM_READY"));
@@ -47,7 +47,7 @@ void setup() {
 void runManualJog() {
   Serial.println(F("MODE:JOG"));
   while (true) {
-    // TEST 7: Exit back to main loop via Break Character [cite: 14]
+    // TEST 7: Exit back to main loop via Break Character
     if (scc.checkForBreak()) { 
       Serial.println(F("MODE:MAIN"));
       break;
