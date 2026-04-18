@@ -7,15 +7,27 @@ steps:
   - write-serial: "ping\n"
   - wait-serial: 'PONG'
 
-  # 2. Test Parameterized Command (Style: Config)
+  # 2. Test Windows-Style Line Endings (\r\n)
+  # Verifies the parser correctly ignores \r and triggers on \n
+  - write-serial: "ping\r\n"
+  - wait-serial: 'PONG'
+
+  # 3. Test Parameterized Command (Style: Config)
   - write-serial: "set-limit 450\n"
   - wait-serial: 'LIMIT_SET:450'
   
-  # 3. Test Parameterized Command - Missing Value Edge Case
+  # 4. Test Parameterized Command - Missing Value Edge Case
   - write-serial: "set-limit \n"
   - wait-serial: 'ERROR:MISSING_VAL'
 
-  # 4. Test Interactive Command (Style: Sub-mode)
+  # 5. Test Buffer Safety / Discarding State
+  # Sending > 64 chars forces the internal discarding state.
+  # We verify recovery by ensuring the 'status' command still works afterward.
+  - write-serial: "this_is_an_extremely_long_string_designed_to_force_the_buffer_into_a_discarding_state_immediately\n"
+  - write-serial: "status\n"
+  - wait-serial: 'STATUS:OK'
+
+  # 6. Test Interactive Command (Style: Sub-mode)
   - write-serial: "jog\n"
   - wait-serial: 'MODE:JOG'
   - write-serial: "++-"
@@ -23,7 +35,7 @@ steps:
   - wait-serial: 'UP'
   - wait-serial: 'DOWN'
 
-  # 5. Exit back to main and verify parameterless command again
+  # 7. Exit back to main and verify parameterless command again
   - write-serial: "!"
   - wait-serial: 'MODE:MAIN'
   - write-serial: "ping\n"

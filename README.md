@@ -89,7 +89,8 @@ void setup() {
 ### Interactive Sub-Modules
 For complex diagnostics like sensor calibration or manual motor stepping, you can enter a dedicated execution loop. This allows the system to process single-character instructions instantly.
 
-    Engineering Note: Do not use getParam() inside a persistent while loop. Because getParam() relies on the internal buffer populated by the main update() cycle, calling it within a local loop will result in a logic spinlock, where the function reads stale data indefinitely. For real-time interactivity, use readChar().
+> Note: Do not use getParam() inside a persistent while loop. Because getParam() relies on the internal buffer populated by the main update() cycle, calling it within a local loop will result in a logic spinlock, where the function reads stale data indefinitely. For real-time interactivity, use readChar().
+
 ```
 void manualStepMode() {
   Serial.println(F("Manual Mode: [+] Forward, [-] Backward, [!] Exit"));
@@ -128,7 +129,7 @@ SerialCommandCoordinator<10, 32, 'q', '\r'> scc(Serial);
 
 ## Considerations
 ### Zero-Heap Allocation
-This library has been re-engineered to eliminate malloc, free, and calloc. All arrays are fixed-size and allocated in the Static Data section of the RAM. This prevents runtime crashes due to heap fragmentation and allows the compiler to provide accurate memory usage reports during the build process.
+This library has been re-designed to eliminate malloc, free, and calloc. All arrays are fixed-size and allocated in the Static Data section of the RAM. This prevents runtime crashes due to heap fragmentation and allows the compiler to provide accurate memory usage reports during the build process.
 
 ### Non-Blocking & Overflow Protection
 The library no longer uses delay() or timing-based reads. It features a Discarding State: if an incoming command exceeds the defined BUFFER_SIZE, the utility enters a non-blocking "ignore" mode until the next newline is reached. This protects the system from processing "garbage" data without halting your program.
@@ -146,5 +147,10 @@ The code is compiled against the following to verify the "Zero-SRAM" footprint a
 * ESP32 (32-bit): Xtensa and RISC-V cores.
 * ARM (32-bit): SAMD21 (Cortex-M0+).
 
-### Functional Simulation (Wokwi)
-Automated hardware-in-the-loop (HIL) testing via Wokwi CLI verifies real-time behavior.
+### Functional Simulation ([Wokwi](https://wokwi.com/))
+Automated hardware-in-the-loop (HIL) testing via Wokwi CLI verifies real-time behavior:
+
+* **Command Parsing**: Callback execution and parameter extraction.
+* **Sub-mode Logic**: Real-time polling via readChar() in sub-routines.
+* **Buffer Safety**: Automatic recovery after input exceeds the 64-byte limit.
+* **Line-Endings**: Compatibility with both Unix (\n) and Windows (\r\n) terminators.
