@@ -30,18 +30,18 @@ jobs:
             board: "arduino:avr:mega"
             platform: "arduino:avr"
             board_type: "mega"
-            simulate: false
+            simulate: true
           - name: "ESP32-Dev-Module"
             board: "esp32:esp32:esp32"
             platform: "esp32:esp32"
             index_url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
             board_type: "esp32"
-            simulate: true
+            simulate: false
           - name: "Arduino-Zero"
             board: "arduino:samd:arduino_zero_native"
             platform: "arduino:samd"
             board_type: "samd21"
-            simulate: false
+            simulate: true
 
     steps:
       - name: Checkout Code
