@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "author": "Matty Kakes Makes",
+  "author": "Matthew Miller",
   "editor": "wokwi",
   "parts": [
     { "id": "mcu", "type": "wokwi-arduino-uno", "left": 0, "top": 0 }

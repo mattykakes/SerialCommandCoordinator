@@ -68,12 +68,18 @@ jobs:
       - name: Compile and Stage Binaries
         run: |
           mkdir -p ./artifacts/${{ matrix.name }}
-          arduino-cli compile --library . -b ${{ matrix.board }} examples/BasicUsage/BasicUsage.ino --output-dir ./artifacts/${{ matrix.name }}
+          
+          # Target the FullIntegrationTest instead of the example
+          arduino-cli compile --library . \
+            -b ${{ matrix.board }} \
+            tests/integration/FullIntegrationTest.ino \
+            --output-dir ./artifacts/${{ matrix.name }}
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.name }}-${{ github.run_id }}
+          # Naming the artifact clearly as an integration test binary
+          name: test-binaries-${{ matrix.name }}-${{ github.run_id }}
           path: ./artifacts/${{ matrix.name }}/
           retention-days: 1
 
@@ -95,7 +101,8 @@ jobs:
       - name: Download Binary for Simulation
         uses: actions/download-artifact@v4
         with:
-          name: binaries-${{ matrix.name }}-${{ github.run_id }}
+          # Must match the name used in the upload step above
+          name: test-binaries-${{ matrix.name }}-${{ github.run_id }}
           path: ./sim-build
 
       - name: Run Wokwi Simulation

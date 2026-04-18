@@ -113,7 +113,6 @@ void manualStepMode() {
 }
 ```
 
-
 ### Advanced Initialization
 Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source as well as the loop break character and serial end marker:
 ```
@@ -136,3 +135,16 @@ The library no longer uses delay() or timing-based reads. It features a Discardi
 
 ### Flash Memory (PROGMEM)
 To maximize SRAM efficiency on 8-bit AVR boards, all registered command strings are stored in Flash. This is why the F() macro is required during registration. On 32-bit boards (ESP32, ARM), the library automatically aliases to compatible types, maintaining a unified codebase.
+
+## CI Testing
+This library uses a two-stage CI/CD pipeline to verify logic across multiple architectures.
+
+### Compilation Matrix
+The code is compiled against the following to verify the "Zero-SRAM" footprint and handle 16-bit vs 32-bit word size differences:
+
+* AVR (8-bit): Uno (ATmega328P), Mega 2560.
+* ESP32 (32-bit): Xtensa and RISC-V cores.
+* ARM (32-bit): SAMD21 (Cortex-M0+).
+
+### Functional Simulation (Wokwi)
+Automated hardware-in-the-loop (HIL) testing via Wokwi CLI verifies real-time behavior.

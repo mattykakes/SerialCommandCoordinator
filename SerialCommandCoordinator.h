@@ -4,7 +4,7 @@
  * @brief A memory-efficient, non-blocking serial command dispatcher for Arduino.
  * @version 0.1.0
  * * MIT License
- * (c) 2023-2026 Matthew Miller
+ * (c) 2023 Matthew Miller
 **/
 
 #ifndef SERIALCOMMANDCOORDINATOR_h
