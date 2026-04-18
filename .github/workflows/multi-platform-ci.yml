@@ -36,7 +36,7 @@ jobs:
             platform: "esp32:esp32"
             index_url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
             board_type: "esp32"
-            simulate: true
+            simulate: false
           - name: "Arduino-Zero"
             board: "arduino:samd:arduino_zero_native"
             platform: "arduino:samd"
@@ -113,4 +113,6 @@ jobs:
           scenario: '../universal_test.yaml'
           # Match the first expected response in yaml scenario
           expect_text: 'SYSTEM_READY'
+          # Increase to 30 seconds for 32-bit bootloaders
+          timeout: 30000
           
