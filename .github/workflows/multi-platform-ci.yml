@@ -111,4 +111,6 @@ jobs:
           token: ${{ secrets.WOKWI_CLI_TOKEN }}
           path: ./tests/integration/${{ matrix.board_type }}
           scenario: '../universal_test.yaml'
-          expect_text: 'Motor speed set to: 255'
+          # Match the first expected response in yaml scenario
+          expect_text: 'SYSTEM_READY'
+          

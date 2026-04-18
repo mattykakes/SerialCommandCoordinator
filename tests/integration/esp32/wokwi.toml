@@ -1,4 +1,4 @@
 [wokwi]
 version = 1
-firmware = '../../sim-build/FullIntegrationTest.ino.hex'
-elf = '../../sim-build/FullIntegrationTest.ino.elf'
+firmware = '../../../sim-build/integration.ino.hex'
+elf = '../../../sim-build/integration.ino.elf'
