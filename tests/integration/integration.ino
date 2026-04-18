@@ -1,4 +1,4 @@
-#include <SerialCommandCoordinator.h>
+#include <../../SerialCommandCoordinator.h>
 
 // 10 commands, 64-byte buffer, '!' break, '\n' end marker
 SerialCommandCoordinator<10, 64, '!', '\n'> scc(Serial);

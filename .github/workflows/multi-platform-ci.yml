@@ -69,10 +69,10 @@ jobs:
         run: |
           mkdir -p ./artifacts/${{ matrix.name }}
           
-          # Target the FullIntegrationTest instead of the example
+          # Target the integration tests instead of the example
           arduino-cli compile --library . \
             -b ${{ matrix.board }} \
-            tests/integration/FullIntegrationTest.ino \
+            tests/integration/integration.ino \
             --output-dir ./artifacts/${{ matrix.name }}
 
       - name: Upload Binaries
