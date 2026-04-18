@@ -1,8 +1,30 @@
-name: 'Universal Serial Command Test'
+name: 'Comprehensive Workflow Test'
 version: 1
 steps:
-  - wait-serial: 'Ready for commands...'
-  - write-serial: "speed 255\n"
-  - wait-serial: 'Motor speed set to: 255'
-  - write-serial: "!" 
-  - wait-serial: 'Exiting...'
+  - wait-serial: 'SYSTEM_READY'
+  
+  # 1. Test Parameterless Command (Style: Trigger)
+  - write-serial: "ping\n"
+  - wait-serial: 'PONG'
+
+  # 2. Test Parameterized Command (Style: Config)
+  - write-serial: "set-limit 450\n"
+  - wait-serial: 'LIMIT_SET:450'
+  
+  # 3. Test Parameterized Command - Missing Value Edge Case
+  - write-serial: "set-limit \n"
+  - wait-serial: 'ERROR:MISSING_VAL'
+
+  # 4. Test Interactive Command (Style: Sub-mode)
+  - write-serial: "jog\n"
+  - wait-serial: 'MODE:JOG'
+  - write-serial: "++-"
+  - wait-serial: 'UP'
+  - wait-serial: 'UP'
+  - wait-serial: 'DOWN'
+
+  # 5. Exit back to main and verify parameterless command again
+  - write-serial: "!"
+  - wait-serial: 'MODE:MAIN'
+  - write-serial: "ping\n"
+  - wait-serial: 'PONG'
