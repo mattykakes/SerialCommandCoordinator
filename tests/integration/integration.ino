@@ -7,12 +7,12 @@ void setup() {
   Serial.begin(115200);
 
   // TEST 1 & 2: Command WITHOUT parameters (Handles \n and \r\n)
-  scc.addCommand("ping", [](auto& s) {
+  scc.registerCommand("ping", [](auto& s) {
     Serial.println(F("PONG"));
   });
 
   // TEST 3 & 4: Command WITH parameters (Handles valid and missing values)
-  scc.addCommand("set-limit", [](auto& s) {
+  scc.registerCommand("set-limit", [](auto& s) {
     const char* val = s.getParam();
     if (val) {
       Serial.print(F("LIMIT_SET:"));
@@ -23,12 +23,12 @@ void setup() {
   });
 
   // TEST 5: Status check (Verifies recovery after buffer overflow)
-  scc.addCommand("status", [](auto& s) {
+  scc.registerCommand("status", [](auto& s) {
     Serial.println(F("STATUS:OK"));
   });
 
   // TEST 6: Interactive Command (Sub-Mode)
-  scc.addCommand("jog", [](auto& s) {
+  scc.registerCommand("jog", [](auto& s) {
     runManualJog();
   });
 
