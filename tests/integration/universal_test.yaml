@@ -4,7 +4,7 @@ steps:
   - wait-serial: 'SYSTEM_READY'
 
   # Add a tiny pause before the first write to ensure the UART buffer is clear
-  - sleep: 100
+  - delay-ms: 100
   
   # 1. Test Parameterless Command (Style: Trigger)
   - write-serial: "ping\n"
