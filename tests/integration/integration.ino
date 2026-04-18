@@ -1,36 +1,45 @@
 #include <SerialCommandCoordinator.h>
 
-// 10 commands, 64-byte buffer, '!' break, '\n' end marker
+// 10 commands, 64-byte buffer, '!' break, '\n' end marker 
 SerialCommandCoordinator<10, 64, '!', '\n'> scc(Serial);
+
+// Wrappers to convert member calls to void pointers for registerCommand
+void handlePing() {
+  Serial.println(F("PONG"));
+}
+
+void handleSetLimit() {
+  const char* val = scc.getParam(); // Access global scc [cite: 10]
+  if (val) {
+    Serial.print(F("LIMIT_SET:"));
+    Serial.println(val);
+  } else {
+    Serial.println(F("ERROR:MISSING_VAL"));
+  }
+}
+
+void handleStatus() {
+  Serial.println(F("STATUS:OK"));
+}
+
+void handleJog() {
+  runManualJog();
+}
 
 void setup() {
   Serial.begin(115200);
 
-  // TEST 1 & 2: Command WITHOUT parameters (Handles \n and \r\n)
-  scc.registerCommand("ping", [](auto& s) {
-    Serial.println(F("PONG"));
-  });
+  // TEST 1 & 2: Wrap strings in F() to match __FlashStringHelper* [cite: 9]
+  scc.registerCommand(F("ping"), handlePing);
 
-  // TEST 3 & 4: Command WITH parameters (Handles valid and missing values)
-  scc.registerCommand("set-limit", [](auto& s) {
-    const char* val = s.getParam();
-    if (val) {
-      Serial.print(F("LIMIT_SET:"));
-      Serial.println(val);
-    } else {
-      Serial.println(F("ERROR:MISSING_VAL"));
-    }
-  });
+  // TEST 3 & 4: Command WITH parameters [cite: 10]
+  scc.registerCommand(F("set-limit"), handleSetLimit);
 
-  // TEST 5: Status check (Verifies recovery after buffer overflow)
-  scc.registerCommand("status", [](auto& s) {
-    Serial.println(F("STATUS:OK"));
-  });
+  // TEST 5: Status check [cite: 11]
+  scc.registerCommand(F("status"), handleStatus);
 
-  // TEST 6: Interactive Command (Sub-Mode)
-  scc.registerCommand("jog", [](auto& s) {
-    runManualJog();
-  });
+  // TEST 6: Interactive Command [cite: 12]
+  scc.registerCommand(F("jog"), handleJog);
 
   Serial.println(F("SYSTEM_READY"));
 }
@@ -38,7 +47,7 @@ void setup() {
 void runManualJog() {
   Serial.println(F("MODE:JOG"));
   while (true) {
-    // TEST 7: Exit back to main loop
+    // TEST 7: Exit back to main loop via Break Character [cite: 14]
     if (scc.checkForBreak()) { 
       Serial.println(F("MODE:MAIN"));
       break;
