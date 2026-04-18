@@ -73,7 +73,8 @@ jobs:
           arduino-cli compile --library . \
             -b ${{ matrix.board }} \
             tests/integration/integration.ino \
-            --output-dir ./artifacts/${{ matrix.name }}
+            --output-dir ./artifacts/${{ matrix.name }} \
+            --export-binaries # This is critical for ESP32/SAMD bootability
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
