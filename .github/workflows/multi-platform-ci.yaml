@@ -158,6 +158,5 @@ jobs:
           sleep 2 # Let the socket open
           
           # Run the Python YAML parser against port 1234
-          python3 tests/integration/yaml_runner.py --yaml universal_test.yaml --port 1234
-          
+          python3 tests/integration/yaml_runner.py --yaml tests/integration/universal_test.yaml --port 1234          
           kill $SIM_PID
