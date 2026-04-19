@@ -16,17 +16,15 @@ def run_scenario(yaml_path, binary_path):
 
     print(f"--- Executing Scenario: {scenario.get('name', 'Unknown')} ---")
 
-    # Spawn the native Linux executable
+    # Spawn the native Linux executable to handle bytes natively
     process = subprocess.Popen(
         [binary_path],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1 # Line-buffered
+        stderr=subprocess.STDOUT
     )
 
-    # Make stdout non-blocking so our timeout logic works exactly like sockets
+    # Make stdout non-blocking so our timeout logic works
     flags = fcntl.fcntl(process.stdout, fcntl.F_GETFL)
     fcntl.fcntl(process.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
@@ -47,11 +45,12 @@ def run_scenario(yaml_path, binary_path):
                     sys.exit(1)
                 
                 try:
-                    data = process.stdout.read()
-                    if data:
-                        buffer += data
-                except TypeError:
-                    pass # Non-blocking read returns None if empty
+                    # Read raw bytes directly from the OS file descriptor
+                    raw_data = os.read(process.stdout.fileno(), 1024)
+                    if raw_data:
+                        buffer += raw_data.decode('utf-8', errors='ignore')
+                except BlockingIOError:
+                    pass # Normal non-blocking behavior (no data right now)
                 
                 time.sleep(0.01) # Yield to CPU
             
@@ -63,7 +62,9 @@ def run_scenario(yaml_path, binary_path):
             payload = step['write-serial']
             payload = payload.encode('utf-8').decode('unicode_escape')
             print(f"Writing: {repr(payload)}")
-            process.stdin.write(payload)
+            
+            # Write bytes to stdin
+            process.stdin.write(payload.encode('utf-8'))
             process.stdin.flush()
 
         # --- COMMAND: delay ---
