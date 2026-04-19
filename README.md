@@ -1,21 +1,21 @@
 # SerialCommandCoordinator
 
-## Origin
-I was working on a control system prototype and wanted a more interacve way to jump between diagnostic modes when working with an Arduino board, and its connected peripherals, than maintaining multiple sketch versions and flashing the board each time I needed to run it in a different mode. The solution had to have a compact enough memory footprint to be useful on the ATmega328P, yet verbose enough that someone could connect to it via a serial port to run these diagnostics. I couldn't find an open source library I felt was both efficient and simple enough so I wrote my own.
-
 ## How it Works
-Given an initialized serial stream in the Arduino ecosystem that inherits from Stream (e.g. HardwareSerial or SoftwareSerial), the SerialCommandCoordinator maps a registered serial command, in the form of null terminated character array, received from said stream to functions via a function's memory address. These values are stored and accessed via two, parallel, unsorted arrays allocated on the heap. Since the number of commands will likely be small, performing a search of an unsorted array for mode switching is sufficient as memory footprint is valued over latency.
+The **SerialCommandCoordinator** maps serial string commands to function addresses without using the heap, making it ideal for memory-constrained environments like the ATmega328P. 
 
+Unlike previous versions that relied on dynamic memory, this revamped library uses **C++ Templates** to allocate command lists and buffers statically at compile-time. Command strings are stored directly in **Program Memory (Flash)** using the `F()` macro, ensuring that SRAM is preserved for your application logic. The library operates using a non-blocking state machine, allowing your main loop to continue running while serial data is being gathered.
 
 ## How to Use It
 ### Main Workflow
-The main workflow for using the SerialCommandCoordinator is as follows:
-1. Initialize the serial stream and SerialCommandCoordinator object
-2. Register a command with function
-3. Wait for input and run the command if matching input arrives
-``` C++
+1. **Initialize**: Declare the object as a template. You can specify the maximum number of commands and the buffer size, or use the optimized defaults.
+2. **Register**: Map string literals (in Flash) to `void` functions.
+3. **Update**: Call `update()` in your main loop to automatically handle input and execution.
 
-SerialCommandCoordinator scc(Serial);
+```cpp
+#include <SerialCommandCoordinator.h>
+
+// Initialize with defaults: 8 commands, 32-byte buffer
+SerialCommandCoordinator<> scc(Serial);
 
 void performLampTest() {
   // code to turn on and off lamp
@@ -27,84 +27,130 @@ void scaleTest() {
 
 void setup() {
   Serial.begin(9600);
-  scc.registerCommand("lampTest", &performLampTest);
-  scc.registerCommand("scaleTest", &performScaleTest);
+  
+  // Register commands using the F() macro to save SRAM
+  scc.registerCommand(F("lampTest"), &performLampTest);
+  scc.registerCommand(F("scaleTest"), &scaleTest);
 }
 
-void loop {
-  if (scc.receiveCommandInput()) {
-    scc.runSelectedCommand();
-  }
+void loop() {
+  // Non-blocking update: checks serial and runs commands automatically
+  scc.update();
+  
+  // Your other application code runs freely here
 }
 ```
-Now, (e.g. using the Arduino IDE and Serial Monitor), when you enter the text **lampTest** in the Serial Monitor, the function ```performLampTest()``` will execute each time the member function ```runSelectedCommand()``` is called. In the example above this will only occur once each time the registered command **lampTest** is entered.
 
-### Setting an Exit Case
-There may be instances where it would be advantageous to return to the **receiveCommandInput** loop defined in the previous section. This is just one example of how to exit an operation back to a SerialCommandCoordinator loop, or even exit a SerialCommandCoordinator mode:
-``` C++
-bool inDiagnosticMode = true;
+### Breaking Out of Loops
+When a registered function initiates a persistent execution loop (e.g., a continuous sensor polling routine), it occupies the processor's execution context, preventing the primary `SerialCommandCoordinator::update()` cycle from monitoring the serial stream. To maintain interactivity without exiting the local scope, the `checkForBreak()` method enables the function to perform a non-blocking poll of the serial buffer for a specific termination signal.
 
+```
 void scaleTest() {
-  bool exec = true;
-  while (exec) {
-    printFormattedScaleValues();
+  Serial.println(F("Scale Test active. Press '!' to stop."));
+  
+  while (true) {
+    // Perform diagnostic work
+    printScaleData();
 
-    if (Serial.available()) {
-      char temp = Serial.read();
-      if(temp == 'q') {
-        clearSerialBuffer();
-        exec = false;
-      } 
+    // Check for the break character (default is '!')
+    if (scc.checkForBreak()) {
+      Serial.println(F("Exiting Test..."));
+      return; // Jumps back to scc.update() in the main loop
     }
   }
-}
-
-void diagnosticMode() {
-  SerialCommandCoordinator scc(Serial);
-  scc.registerCommand("scaleTest", &scaleTest);
-  scc.registerCommand("buttonTest", &buttonTest);
-  scc.printCommandList();
-
-  while (inDiagnosticMode) {
-    if (scc.receiveCommandInput()) {
-      scc.runSelectedCommand();
-      scc.printCommandList();
-    }
-  }
-
 }
 ```
-Note: There are plans to internalize this inside the class to allow for more flexability in use case.
 
-### Considerations
-#### Initialization and Destruction
-There is not a way to remove or change registered commands as the intent is to initialize once and use either throughout the duration of a program, or until the object is destroyed. This design choice was made in an attempt to reduce the chance of memory fragmentation on the heap, as well as keep the memory footprint of the SerialCommandCoordinator object small.
+### Passing Parameters
+To maintain a minimal memory footprint, the library provides a command-length agnostic method for retrieving arguments. The getParam() method scans the internal buffer for the first space delimiter and returns a zero-copy pointer to the start of the parameter payload.
 
-Note: There are plans to change the allocation of the buffers containing only references to non-managed memory to be allocated on the stack instead of the heap in additional overloaded constructors.
+```
+void setMotorSpeed() {
+  // Automatically locates the data following the command
+  const char* param = scc.getParam();
+  
+  if (param != nullptr) {
+    int speed = atoi(param);
+    analogWrite(MOTOR_PIN, speed);
+    
+    Serial.print(F("Motor speed set to: "));
+    Serial.println(speed);
+  } else {
+    Serial.println(F("Error: No parameter provided."));
+  }
+}
 
-#### Baud Rate
-The initial baud rate is set to 9600. If set different in Serial.begin(), the baud rate should also be set for the SerialCommandCoordinator using ```setBaudRate()```. This is to prevent a race condition where the entirety of the serial buffer is read such that the stream.available() shows no new data is present, but no ending character is reached. This can cause data that fills the serial buffer to treated as new input again when it is, instead, intended to be part of the previous input string. The delay equates for the minimum theoretical delay it should take to fill the Arduino's predefined 64 byte serial buffer based on the baud rate, between reads of said buffer.
+void setup() {
+  Serial.begin(9600);
+  scc.registerCommand(F("speed"), &setMotorSpeed);
+}
+```
 
-Note: There are plans to add this to an overload of the class constructor.
+### Interactive Sub-Modules
+For complex diagnostics like sensor calibration or manual motor stepping, you can enter a dedicated execution loop. This allows the system to process single-character instructions instantly.
 
-#### Limit on Commands
-The command list size is currently set to 8 commands. The functions referenced do not support parameters and should be of void return type.
+> Note: Do not use getParam() inside a persistent while loop. Because getParam() relies on the internal buffer populated by the main update() cycle, calling it within a local loop will result in a logic spinlock, where the function reads stale data indefinitely. For real-time interactivity, use readChar().
 
-Note: There are plans to add a command list size to an overload of the class constructor. 
- 
- ### Public Members
- This is a quick reference. Detailed descriptions of these members can be found in the SerialCommandCoordinator.h file
- ``` C++
-SerialCommandCoordinator(Stream &device);
-SerialCommandCoordinator(Stream *device);
-virtual ~SerialCommandCoordinator();
-bool receiveInput();
-bool receiveCommandInput();
-bool registerCommand(const char *command, const void (*function)(void));
-void runSelectedCommand();
-void printCommandList();
-void printInputBuffer();
-void setBaudRate(long baudRate);
-const char* getSerialBuffer();
-void testStream();  
- ```
+```
+void manualStepMode() {
+  Serial.println(F("Manual Mode: [+] Forward, [-] Backward, [!] Exit"));
+  
+  while (true) {
+    // 1. Check for the template-defined break character ('!')
+    if (scc.checkForBreak()) {
+      Serial.println(F("Exiting..."));
+      return; 
+    }
+
+    // 2. Use readChar() for real-time stream interaction
+    char input = scc.readChar();
+    
+    if (input == '+') {
+      stepMotor(1);
+    } else if (input == '-') {
+      stepMotor(-1);
+    }
+  }
+}
+```
+
+### Advanced Initialization
+Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source as well as the loop break character and serial end marker:
+```
+// Default: 8 commands, 32-byte buffer, '!' break, '\n' end
+SerialCommandCoordinator<> scc(Serial); 
+
+// Custom sizing: 12 commands, 64-byte buffer
+SerialCommandCoordinator<12, 64> scc(Serial);
+
+// Full protocol override: 10 commands, 32-byte buffer, q break, CR end marker
+SerialCommandCoordinator<10, 32, 'q', '\r'> scc(Serial);
+```
+
+## Considerations
+### Zero-Heap Allocation
+This library has been re-designed to eliminate malloc, free, and calloc. All arrays are fixed-size and allocated in the Static Data section of the RAM. This prevents runtime crashes due to heap fragmentation and allows the compiler to provide accurate memory usage reports during the build process.
+
+### Non-Blocking & Overflow Protection
+The library no longer uses delay() or timing-based reads. It features a Discarding State: if an incoming command exceeds the defined BUFFER_SIZE, the utility enters a non-blocking "ignore" mode until the next newline is reached. This protects the system from processing "garbage" data without halting your program.
+
+### Flash Memory (PROGMEM)
+To maximize SRAM efficiency on 8-bit AVR boards, all registered command strings are stored in Flash. This is why the F() macro is required during registration. On 32-bit boards (ESP32, ARM), the library automatically aliases to compatible types, maintaining a unified codebase.
+
+## CI Testing
+This library uses a two-stage CI/CD pipeline to verify logic across multiple architectures.
+
+### Compilation Matrix
+The code is compiled against the following to verify the "Zero-SRAM" footprint and handle 16-bit vs 32-bit word size differences:
+
+* AVR (8-bit): Uno (ATmega328P), Mega 2560.
+* ESP32 (32-bit): Xtensa and RISC-V cores.
+* ARM (32-bit): SAMD21 (Cortex-M0+).
+
+### Functional Simulation ([EpoxyDuino](https://github.com/bxparks/EpoxyDuino))
+We leverage Host-Side Testing (compiling natively for Linux via EpoxyDuino) to validate the core library logic at maximum velocity. This stage bypasses hardware emulation to focus on:
+
+* **Command Parsing**: Callback execution and parameter extraction.
+* **Sub-mode Logic**: Real-time polling via readChar() in sub-routines.
+* **Buffer Safety**: Automatic recovery after input exceeds the 64-byte limit.
+* **Line-Endings**: Compatibility with both Unix (\n) and Windows (\r\n) terminators.

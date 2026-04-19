@@ -1,0 +1,121 @@
+name: Multi-Platform CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- STAGE 1: COMPILATION ---
+  compile_test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Arduino-Uno"
+            board: "arduino:avr:uno"
+            platform: "arduino:avr"
+            board_type: "uno"
+          - name: "Arduino-Mega-2560"
+            board: "arduino:avr:mega"
+            platform: "arduino:avr"
+            board_type: "mega"
+          - name: "ESP32-Dev-Module"
+            board: "esp32:esp32:esp32"
+            platform: "esp32:esp32"
+            index_url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+            board_type: "esp32"
+          - name: "Arduino-Zero"
+            board: "arduino:samd:arduino_zero_native"
+            platform: "arduino:samd"
+            board_type: "samd21"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Cache Arduino Platforms
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/staging
+          # The cache key hashes the YAML file. 
+          # If the matrix changes or a new board is added, the cache automatically resets.
+          key: ${{ runner.os }}-arduino-${{ hashFiles('.github/workflows/multi-platform-ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-arduino-
+
+      - name: Install Platforms
+        run: |
+          if [ ! -z "${{ matrix.index_url }}" ]; then
+            arduino-cli core update-index --additional-urls ${{ matrix.index_url }}
+            arduino-cli core install ${{ matrix.platform }} --additional-urls ${{ matrix.index_url }}
+          else
+            arduino-cli core install ${{ matrix.platform }}
+          fi
+
+      - name: Compile and Stage Binaries
+        run: |
+          mkdir -p ./artifacts/${{ matrix.name }}
+          
+          # Target the integration tests instead of the example
+          arduino-cli compile --library . \
+            -b ${{ matrix.board }} \
+            tests/integration/integration.ino \
+            --output-dir ./artifacts/${{ matrix.name }} \
+            --export-binaries # This is critical for ESP32/SAMD bootability
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          # Naming the artifact clearly as an integration test binary
+          name: test-binaries-${{ matrix.name }}-${{ github.run_id }}
+          path: ./artifacts/${{ matrix.name }}/
+          retention-days: 1
+
+  # --- STAGE 2: NATIVE LOGIC TEST (Zero-Heap & Pointer Validation) ---
+  logic_test:
+    needs: compile_test 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: |
+          python3 -m pip install pyyaml
+          # Clone EpoxyDuino to compile Arduino code natively on Linux
+          git clone https://github.com/bxparks/EpoxyDuino.git 
+
+      - name: Compile Native Executable
+        run: |
+          # 1. Generate the Makefile on the fly
+          cat << 'EOF' > tests/integration/Makefile
+          APP_NAME := integration
+          CXXFLAGS += -I../../
+          include $(EPOXY_DUINO_DIR)/EpoxyDuino.mk
+          EOF
+          
+          # 2. Compile it
+          export EPOXY_DUINO_DIR=$PWD/EpoxyDuino
+          make -C tests/integration
+
+      - name: Run Native Simulation
+        run: |
+          # Run the Python test harness against the native executable
+          python3 tests/integration/yaml_runner.py --yaml tests/integration/universal_test.yaml --binary tests/integration/integration.out

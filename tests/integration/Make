@@ -1,0 +1,7 @@
+# tests/integration/Makefile
+APP_NAME := integration.out
+ARDUINO_LIBS := SerialCommandCoordinator
+
+# Point to where your library source files live relative to this directory
+USER_LIB_DIRS := ../../
+include $(EPOXY_CORE_PATH)/EpoxyCore.mk
