@@ -2,8 +2,11 @@
   "version": 1,
   "author": "Matthew Miller",
   "editor": "wokwi",
-  "parts": [
-    { "id": "mcu", "type": "wokwi-pi-pico", "left": 0, "top": 0 }
-  ],
-  "connections": []
+    "parts": [
+      { "id": "pico", "type": "wokwi-pi-pico" }
+    ],
+  "connections": [
+    [ "pico:GP0", "$serialMonitor:RX", "" ],
+    [ "pico:GP1", "$serialMonitor:TX", "" ]
+   ]
 }

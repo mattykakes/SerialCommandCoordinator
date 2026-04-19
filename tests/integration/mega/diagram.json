@@ -3,7 +3,8 @@
   "author": "Matthew Miller",
   "editor": "wokwi",
   "parts": [
-    { "id": "mcu", "type": "wokwi-mega2560", "left": 0, "top": 0 }
+    { "type": "wokwi-arduino-mega", "id": "mega", "top": 0, "left": 0, "attrs": {} }
   ],
-  "connections": []
+  "connections": [],
+  "dependencies": {}
 }
