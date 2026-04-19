@@ -22,6 +22,21 @@ void handleStatus() {
   Serial.println(F("STATUS:OK"));
 }
 
+void runManualJog() {
+  Serial.println(F("MODE:JOG"));
+  while (true) {
+    // TEST 7: Exit back to main loop via Break Character
+    if (scc.checkForBreak()) { 
+      Serial.println(F("MODE:MAIN"));
+      break;
+    }
+
+    char c = scc.readChar(); 
+    if (c == '+') Serial.println(F("UP"));
+    else if (c == '-') Serial.println(F("DOWN"));
+  }
+}
+
 void handleJog() {
   runManualJog();
 }
@@ -42,21 +57,6 @@ void setup() {
   scc.registerCommand(F("jog"), handleJog);
 
   Serial.println(F("SYSTEM_READY"));
-}
-
-void runManualJog() {
-  Serial.println(F("MODE:JOG"));
-  while (true) {
-    // TEST 7: Exit back to main loop via Break Character
-    if (scc.checkForBreak()) { 
-      Serial.println(F("MODE:MAIN"));
-      break;
-    }
-
-    char c = scc.readChar(); 
-    if (c == '+') Serial.println(F("UP"));
-    else if (c == '-') Serial.println(F("DOWN"));
-  }
 }
 
 void loop() {
