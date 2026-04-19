@@ -83,80 +83,32 @@ jobs:
           path: ./artifacts/${{ matrix.name }}/
           retention-days: 1
 
-  # --- STAGE 2: INTEGRATION ---
-  integration_test:
+  # --- STAGE 2: NATIVE LOGIC TEST (Zero-Heap & Pointer Validation) ---
+  logic_test:
     needs: compile_test 
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: "Arduino-Uno"
-            board_type: "uno"
-            sim_tool: "simavr"
-            mcu: "atmega328p"
-            simulate: true
-          - name: "Arduino-Mega-2560"
-            board_type: "mega"
-            sim_tool: "simavr"
-            mcu: "atmega2560"
-            simulate: true
-          - name: "ESP32-Dev-Module"
-            board_type: "esp32"
-            simulate: true
-          - name: "Arduino-Zero"
-            board_type: "samd21"
-            sim_tool: "qemu"
-            mcu: "cortex-m0"
-            simulate: true
-    
     steps:
       - name: Checkout Code
-        if: ${{ matrix.simulate }}
         uses: actions/checkout@v4
 
-      - name: Download Binary for Simulation
-        if: ${{ matrix.simulate }}
-        uses: actions/download-artifact@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          name: test-binaries-${{ matrix.name }}-${{ github.run_id }}
-          path: ./sim-build
+          python-version: '3.x'
 
-      - name: Install Emulator & Dependencies
-        if: ${{ matrix.simulate }}
+      - name: Install Dependencies
         run: |
-          sudo apt-get update
-          # Install PyYAML for the python runner
-          python3 -m pip install pyyaml 
-          
-          if [ "${{ matrix.sim_tool }}" == "simavr" ]; then
-            sudo apt-get install -y simavr socat
-          elif [ "${{ matrix.sim_tool }}" == "qemu" ]; then
-            sudo apt-get install -y qemu-system-arm
-          fi
+          python3 -m pip install pyyaml
+          # Clone EpoxyDuino to compile Arduino code natively on Linux
+          git clone https://github.com/bxparks/EpoxyDuino.git 
 
-      - name: Run Architecture Simulation
-        if: ${{ matrix.simulate }}
+      - name: Compile Native Executable
         run: |
-          # Launch emulator, binding virtual UART to TCP port 1234
-          if [ "${{ matrix.sim_tool }}" == "simavr" ]; then
-            # simavr doesn't natively expose TCP easily, so we use socat to bridge its PTY to TCP port 1234
-            simavr -m ${{ matrix.mcu }} -f 16000000 ./sim-build/integration.ino.elf > /tmp/simavr.log 2>&1 &
-            sleep 2
-            # simavr creates /tmp/simavr-uart0. We bridge it.
-            socat tcp-listen:1234,reuseaddr,fork pty,link=/tmp/simavr-uart0,raw,echo=0 &
-            SIM_PID=$!
-            
-          elif [ "${{ matrix.sim_tool }}" == "qemu" ]; then
-            # QEMU natively supports bridging serial to a TCP socket
-            qemu-system-arm -machine microbit -nographic \
-              -kernel ./sim-build/integration.ino.elf \
-              -serial tcp:127.0.0.1:1234,server,nowait &
-            SIM_PID=$!
-          fi
-          
-          sleep 2 # Let the socket open
-          
-          # Run the Python YAML parser against port 1234
-          python3 tests/integration/yaml_runner.py --yaml tests/integration/universal_test.yaml --port 1234          
-          kill $SIM_PID
+          # Use the Makefile to build the .ino file into a Linux binary
+          export EPOXY_CORE_PATH=$PWD/EpoxyDuino
+          make -C tests/integration
+
+      - name: Run Native Simulation
+        run: |
+          # Run the Python test harness against the native executable
+          python3 tests/integration/yaml_runner.py --yaml tests/integration/universal_test.yaml --binary tests/integration/integration.out
