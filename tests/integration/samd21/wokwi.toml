@@ -1,4 +1,0 @@
-[wokwi]
-version = 1
-firmware = '../../../sim-build/integration.ino.elf'
-elf = '../../../sim-build/integration.ino.elf'
