@@ -109,7 +109,7 @@ jobs:
           APP_NAME := integration.out
           ARDUINO_LIBS := SerialCommandCoordinator
           USER_LIB_DIRS := ../../
-          include $(EPOXY_CORE_PATH)/EpoxyCore.mk
+          include $(EPOXY_CORE_PATH)/EpoxyDuino.mk
           EOF
           
           # 2. Compile it
