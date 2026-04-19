@@ -78,19 +78,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-      include:
-        - name: "Arduino-Uno"
-          board_type: "uno"
-          simulate: true
-        - name: "Arduino-Mega-2560"
-          board_type: "mega"
-          simulate: true
-        - name: "ESP32-Dev-Module"
-          board_type: "esp32"
-          simulate: false
-        - name: "Arduino-Zero"
-          board_type: "samd21"
-          simulate: true
+        include:
+          - name: "Arduino-Uno"
+            board_type: "uno"
+            simulate: true
+          - name: "Arduino-Mega-2560"
+            board_type: "mega"
+            simulate: true
+          - name: "ESP32-Dev-Module"
+            board_type: "esp32"
+            simulate: false
+          - name: "Arduino-Zero"
+            board_type: "samd21"
+            simulate: true
 
     if: ${{ matrix.simulate == true }}      
     steps:
