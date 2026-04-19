@@ -257,22 +257,30 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
      * @return true if a function was found and selected.
      */
     bool setSelectedFunction() {
-      int ndx = 0;
       _functionSelected = nullptr;
 
-      while (ndx < MAX_COMMANDS && _inputValid) {
-        if (_commandList[ndx] == nullptr) {
-          return false;
-        }
+      // Temporarily null-terminate at the first space
+      uint8_t* spacePos = strchr(_inputBuffer, ' ');
+      if (spacePos != nullptr) *spacePos = '\0';
 
-        // found function - architecture-aware comparison
+      int ndx = 0;
+      while (ndx < MAX_COMMANDS && _inputValid) {
+        if (_commandList[ndx] == nullptr) break;
+
+        // Exact match check
         if (strcmp_P(_inputBuffer, (PGM_P)_commandList[ndx]) == 0) {
           _functionSelected = _functionList[ndx];
+          
+          // Restore the space so getParam() still works
+          if (spacePos != nullptr) *spacePos = ' '; 
           return true;
         }
-        ndx++;    
+        ndx++;
       }
-      return false; // not found in list
+
+      // Restore the space if the command was invalid
+      if (spacePos != nullptr) *spacePos = ' '; 
+      return false; 
     }
 
     Stream *_device = nullptr;        ///< Address to input stream.
