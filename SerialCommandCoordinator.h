@@ -163,18 +163,27 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
     }
 
     /**
-     * @brief Polls the stream for a single character, ignoring the END_MARKER.
-     * @return The character read, or 0 if no data is available.
+     * @brief Polls the stream for the next valid character, instantly 
+     * flushing any terminators.
+     * @return The character read, or 0 if no valid data is available.
      */
     char readChar() {
-        if (_device->available() > 0) {
+        while (_device->available() > 0) {
+            // If we see the break character, let checkForBreak()
+            // handle it on the next loop.
+            if (_device->peek() == DEFAULT_BREAK) {
+                return 0; 
+            }
+
+            // Otherwise, safely consume the character
             char c = _device->read();
+            
             // Ignore the end marker so it doesn't interfere with logic loops
             if (c != END_MARKER && c != '\r') {
                 return c;
             }
         }
-        return 0;
+        return 0; // Buffer is empty, or only contained terminators
     }
 
     /** @brief Prints the current value stored in the _inputBuffer. */
