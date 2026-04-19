@@ -71,7 +71,7 @@ jobs:
           # Pointing to the example instead of tests/
           arduino-cli compile --library . \
             -b ${{ matrix.board }} \
-            examples/BasicUsage.ino \
+            examples/BasicUsage/BasicUsage.ino \
             --output-dir ./artifacts/${{ matrix.name }} \
             --export-binaries
 
