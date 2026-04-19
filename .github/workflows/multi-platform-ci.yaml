@@ -68,12 +68,12 @@ jobs:
         run: |
           mkdir -p ./artifacts/${{ matrix.name }}
           
-          # Target the integration tests instead of the example
+          # Pointing to the example instead of tests/
           arduino-cli compile --library . \
             -b ${{ matrix.board }} \
-            tests/integration/integration.ino \
+            examples/BasicUsage/BasicUsage.ino \
             --output-dir ./artifacts/${{ matrix.name }} \
-            --export-binaries # This is critical for ESP32/SAMD bootability
+            --export-binaries
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
@@ -104,18 +104,21 @@ jobs:
 
       - name: Compile Native Executable
         run: |
-          # 1. Generate the Makefile on the fly
+          # 1. Generate Makefile pointing to the new example path
           cat << 'EOF' > tests/integration/Makefile
-          APP_NAME := integration
+          APP_NAME := BasicUsage
           CXXFLAGS += -I../../
+          VPATH := ../../examples/BasicUsage
           include $(EPOXY_DUINO_DIR)/EpoxyDuino.mk
           EOF
           
-          # 2. Compile it
+          # 2. Compile
           export EPOXY_DUINO_DIR=$PWD/EpoxyDuino
           make -C tests/integration
 
       - name: Run Native Simulation
         run: |
-          # Run the Python test harness against the native executable
-          python3 tests/integration/yaml_runner.py --yaml tests/integration/universal_test.yaml --binary tests/integration/integration.out
+          # Run runner against the binary generated from the example
+          python3 tests/integration/yaml_runner.py \
+            --yaml tests/integration/universal_test.yaml \
+            --binary tests/integration/BasicUsage.out
