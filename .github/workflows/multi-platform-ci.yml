@@ -91,13 +91,14 @@ jobs:
           - name: "Arduino-Zero"
             board_type: "samd21"
             simulate: true
-
-    if: ${{ matrix.simulate == true }}      
+    
     steps:
       - name: Checkout Code
+        if: ${{ matrix.simulate }}
         uses: actions/checkout@v4
 
       - name: Download Binary for Simulation
+        if: ${{ matrix.simulate }}
         uses: actions/download-artifact@v4
         with:
           # Must match the name used in the upload step above
@@ -105,6 +106,7 @@ jobs:
           path: ./sim-build
 
       - name: Run Wokwi Simulation
+        if: ${{ matrix.simulate }}
         uses: wokwi/wokwi-ci-action@v1
         with:
           token: ${{ secrets.WOKWI_CLI_TOKEN }}
