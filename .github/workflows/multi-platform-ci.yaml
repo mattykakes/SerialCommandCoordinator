@@ -108,11 +108,11 @@ jobs:
           cat << 'EOF' > tests/integration/Makefile
           APP_NAME := integration
           CXXFLAGS += -I../../
-          include $(EPOXY_CORE_PATH)/EpoxyDuino.mk
+          include $(EPOXY_DUINO_DIR)/EpoxyDuino.mk
           EOF
           
           # 2. Compile it
-          export EPOXY_CORE_PATH=$PWD/EpoxyDuino
+          export EPOXY_DUINO_DIR=$PWD/EpoxyDuino
           make -C tests/integration
 
       - name: Run Native Simulation
