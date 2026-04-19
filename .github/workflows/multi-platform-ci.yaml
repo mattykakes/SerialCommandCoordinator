@@ -104,7 +104,15 @@ jobs:
 
       - name: Compile Native Executable
         run: |
-          # Use the Makefile to build the .ino file into a Linux binary
+          # 1. Generate the Makefile on the fly
+          cat << 'EOF' > tests/integration/Makefile
+          APP_NAME := integration.out
+          ARDUINO_LIBS := SerialCommandCoordinator
+          USER_LIB_DIRS := ../../
+          include $(EPOXY_CORE_PATH)/EpoxyCore.mk
+          EOF
+          
+          # 2. Compile it
           export EPOXY_CORE_PATH=$PWD/EpoxyDuino
           make -C tests/integration
 

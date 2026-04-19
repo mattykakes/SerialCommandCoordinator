@@ -148,7 +148,7 @@ The code is compiled against the following to verify the "Zero-SRAM" footprint a
 * ARM (32-bit): SAMD21 (Cortex-M0+).
 
 ### Functional Simulation ([Wokwi](https://wokwi.com/))
-Automated hardware-in-the-loop (HIL) testing via Wokwi CLI verifies real-time behavior:
+We leverage Host-Side Testing (compiling natively for Linux via EpoxyDuino) to validate the core library logic at maximum velocity. This stage bypasses hardware emulation to focus on:
 
 * **Command Parsing**: Callback execution and parameter extraction.
 * **Sub-mode Logic**: Real-time polling via readChar() in sub-routines.
