@@ -23,8 +23,13 @@
    * 'const' ensures the compiler keeps data in Flash to save SRAM. 
    * Macros alias AVR Flash-functions to standard C for portability.
    */
-  #define PGM_P const char*
-  #define strcmp_P strcmp
+  #ifndef PGM_P
+    #define PGM_P const char*
+  #endif
+  
+  #ifndef strcmp_P
+    #define strcmp_P strcmp
+  #endif
 #endif
 
 /**
