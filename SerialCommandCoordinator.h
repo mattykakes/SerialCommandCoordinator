@@ -260,7 +260,7 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
       _functionSelected = nullptr;
 
       // Temporarily null-terminate at the first space
-      uint8_t* spacePos = strchr(_inputBuffer, ' ');
+      char* spacePos = strchr(_inputBuffer, ' ');
       if (spacePos != nullptr) *spacePos = '\0';
 
       int ndx = 0;
