@@ -201,7 +201,11 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
       while (_device->available() > 0) {
         rc = _device->read();
 
-        if (rc == '\r' && rc != END_MARKER) {
+        // Intercept and ignore Windows carriage returns immediately
+        if (rc == '\r') continue;
+
+        // Normal processing for all other characters
+        if (rc != END_MARKER) {
           if (_discarding) continue; 
 
           // check for buffer overflow
