@@ -44,7 +44,7 @@ void loop() {
 ### Breaking Out of Loops
 When a registered function initiates a persistent execution loop (e.g., a continuous sensor polling routine), it occupies the processor's execution context, preventing the primary `SerialCommandCoordinator::update()` cycle from monitoring the serial stream. To maintain interactivity without exiting the local scope, the `checkForBreak()` method enables the function to perform a non-blocking poll of the serial buffer for a specific termination signal.
 
-```
+```cpp
 void scaleTest() {
   Serial.println(F("Scale Test active. Press '!' to stop."));
   
@@ -64,7 +64,7 @@ void scaleTest() {
 ### Passing Parameters
 To maintain a minimal memory footprint, the library provides a command-length agnostic method for retrieving arguments. The getParam() method scans the internal buffer for the first space delimiter and returns a zero-copy pointer to the start of the parameter payload.
 
-```
+```cpp
 void setMotorSpeed() {
   // Automatically locates the data following the command
   const char* param = scc.getParam();
@@ -91,7 +91,7 @@ For complex diagnostics like sensor calibration or manual motor stepping, you ca
 
 > Note: Do not use getParam() inside a persistent while loop. Because getParam() relies on the internal buffer populated by the main update() cycle, calling it within a local loop will result in a logic spinlock, where the function reads stale data indefinitely. For real-time interactivity, use readChar().
 
-```
+```cpp
 void manualStepMode() {
   Serial.println(F("Manual Mode: [+] Forward, [-] Backward, [!] Exit"));
   
@@ -116,7 +116,7 @@ void manualStepMode() {
 
 ### Advanced Initialization
 Because this is a template-based library, you can customize the memory footprint based on your specific hardware needs without editing the library source as well as the loop break character and serial end marker:
-```
+```cpp
 // Default: 8 commands, 32-byte buffer, '!' break, '\n' end
 SerialCommandCoordinator<> scc(Serial); 
 
