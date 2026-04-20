@@ -1,5 +1,3 @@
-# SerialCommandCoordinator
-
 ## How it Works
 The **SerialCommandCoordinator** maps serial string commands to function addresses without using the heap, making it ideal for memory-constrained environments like the ATmega328P. 
 
@@ -154,3 +152,6 @@ We leverage Host-Side Testing (compiling natively for Linux via EpoxyDuino) to v
 * **Sub-mode Logic**: Real-time polling via readChar() in sub-routines.
 * **Buffer Safety**: Automatic recovery after input exceeds the 64-byte limit.
 * **Line-Endings**: Compatibility with both Unix (\n) and Windows (\r\n) terminators.
+
+## Support
+If you enjoyed using this library, please feel free to [Buy me a Coffee](https://buymeacoffee.com/mattykakesmakes) 🍵😉
