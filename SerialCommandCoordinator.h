@@ -91,20 +91,11 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
      * (ending in END_MARKER) is received. Should be called once per loop().
      */
     void update() {
-      if (receiveCommandInput()) {
-        runSelectedCommand();
+      if (receiveInput()) {
+        if (setSelectedFunction()) {
+          runSelectedCommand();
+        }
       }
-    }
-
-    /**
-     * @brief If the last call to receiveCommandInput() is successful, will run the 
-     * most recently selected function matching a valid command from the _commandList.
-     */
-    void runSelectedCommand() {
-      if (!_inputValid || _functionSelected == nullptr) {
-        return;
-      }
-      (*_functionSelected)();
     }
 
     /** @brief Prints all commands currently registered in the _commandList. */
@@ -247,17 +238,15 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
     }
 
     /**
-     * @brief First calls receiveInput. 
-     * * If receiveInput is successful, _inputBuffer contains a valid string, 
-     * attempts to set the selected command with setSelectedFunction(). 
-     * @return true if successful; the selected command can be run via runSelectedCommand(). 
-     * If the command is not recognized, no command will be pre-selected and returns false.
+     * @brief Triggers the callback for a successfully matched command string.
+     * Typically called internally by update() after receiveInput() and 
+     * setSelectedFunction() resolve successfully.
      */
-    bool receiveCommandInput() {
-      if (receiveInput()) {
-        return setSelectedFunction();
+    void runSelectedCommand() {
+      if (!_inputValid || _functionSelected == nullptr) {
+        return;
       }
-      return false;
+      (*_functionSelected)();
     }
 
     /**
