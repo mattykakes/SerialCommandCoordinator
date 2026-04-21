@@ -30,6 +30,12 @@
   #ifndef strcmp_P
     #define strcmp_P strcmp
   #endif
+
+  // Polyfill: Allows the parser to use 8-bit fast-fail optimizations (bypassing 
+  // strcmp_P overhead) without penalizing 32-bit memory-mapped architectures.
+  #ifndef pgm_read_byte
+    #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
+  #endif
 #endif
 
 /**
@@ -53,7 +59,7 @@ class SerialCommandCoordinator
     /** @brief Construct using a pointer to a Stream. */
     SerialCommandCoordinator(Stream *device) : _device(device) {}
     
-    virtual ~SerialCommandCoordinator() {}
+    ~SerialCommandCoordinator() {}
 
     /**
      * @brief Given a null terminated string and function address, attempts to register 
@@ -63,25 +69,26 @@ class SerialCommandCoordinator
      * @return Fails and returns false if the command is already in the list, 
      * the list is full, or nullptr is an argument. Returns true on success.
      */
-bool registerCommand(const __FlashStringHelper *command, void (*function)(void)) {      if (command == nullptr || function == nullptr) {
+    bool registerCommand(const __FlashStringHelper *command, void (*function)(void)) {      
+      if (command == nullptr || function == nullptr) {
         return false;
       }
       
       // find next empty spot in list
       uint8_t ndx = 0;
       while (ndx < MAX_COMMANDS) {
-        if (_commandList[ndx] == nullptr) break;
+        if (_commands[ndx].commandStr == nullptr) break;
 
         // command already in list - architecture-aware comparison
-        if (strcmp_P((const char*)command, (PGM_P)_commandList[ndx]) == 0) return false;
+        if (strcmp_P((const char*)command, (PGM_P)_commands[ndx].commandStr) == 0) return false;
         ndx++;
       }
 
       // Command buffer full, cannot register command
       if (ndx >= MAX_COMMANDS) return false; 
 
-      _commandList[ndx] = command;
-      _functionList[ndx] = (func_ptr_t)function;
+      _commands[ndx].commandStr = command;
+      _commands[ndx].functionPtr = (func_ptr_t)function;
       return true;
     }
 
@@ -98,11 +105,11 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
       }
     }
 
-    /** @brief Prints all commands currently registered in the _commandList. */
+    /** @brief Prints all commands currently registered in the command list. */
     void printCommandList() {
-      for (int i = 0; i < MAX_COMMANDS; i++) {
-        if (_commandList[i] != nullptr) {
-          _device->println(_commandList[i]);
+      for (uint8_t i = 0; i < MAX_COMMANDS; i++) {
+        if (_commands[i].commandStr != nullptr) {
+          _device->println(_commands[i].commandStr);
         }
       }
     }
@@ -188,6 +195,15 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
   private:
     typedef void(*func_ptr_t)(void);
 
+    struct CommandRecord {
+        const __FlashStringHelper *commandStr;
+        func_ptr_t functionPtr;
+    };
+
+    // Bitfield masks for state management
+    static const uint8_t FLAG_DISCARDING = 0x01;
+    static const uint8_t FLAG_INPUT_VALID = 0x02;
+
     /**
      * @brief Checks the serial stream for available data without blocking. 
      * * If bytes are present, they are appended to _inputBuffer at _bufferIndex.
@@ -206,7 +222,7 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
 
         // Normal processing for all other characters
         if (rc != END_MARKER) {
-          if (_discarding) continue; 
+          if (_flags & FLAG_DISCARDING) continue; 
 
           // check for buffer overflow
           if (_bufferIndex < BUFFER_SIZE - 1) {
@@ -215,22 +231,22 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
           } else {
             // buffer is full: enter discard state to protect next command
             _inputBuffer[_bufferIndex] = '\0'; // terminate the string
-            _inputValid = false; // input string too large for buffer
-            _discarding = true;
+            _flags &= ~FLAG_INPUT_VALID;       // input string too large for buffer
+            _flags |= FLAG_DISCARDING;
           }
         } else {
           // end marker reached
-          bool wasDiscarding = _discarding;
+          bool wasDiscarding = (_flags & FLAG_DISCARDING);
           _inputBuffer[_bufferIndex] = '\0';
           _bufferIndex = 0; // reset index for the next command
-          _discarding = false; // Reset state for next command
+          _flags &= ~FLAG_DISCARDING; // Reset state for next command
 
           if (wasDiscarding) {
-            _inputValid = false;
+            _flags &= ~FLAG_INPUT_VALID;
             return false; // Silently drop over-sized command
           }
 
-          _inputValid = true;
+          _flags |= FLAG_INPUT_VALID;
           return true;
         }
       }
@@ -243,7 +259,7 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
      * setSelectedFunction() resolve successfully.
      */
     void runSelectedCommand() {
-      if (!_inputValid || _functionSelected == nullptr) {
+      if (!(_flags & FLAG_INPUT_VALID) || _functionSelected == nullptr) {
         return;
       }
       (*_functionSelected)();
@@ -262,16 +278,20 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
       if (spacePos != nullptr) *spacePos = '\0';
 
       uint8_t ndx = 0;
-      while (ndx < MAX_COMMANDS && _inputValid) {
-        if (_commandList[ndx] == nullptr) break;
+      while (ndx < MAX_COMMANDS && (_flags & FLAG_INPUT_VALID)) {
+        if (_commands[ndx].commandStr == nullptr) break;
 
-        // Exact match check
-        if (strcmp_P(_inputBuffer, (PGM_P)_commandList[ndx]) == 0) {
-          _functionSelected = _functionList[ndx];
-          
-          // Restore the space so getParam() still works
-          if (spacePos != nullptr) *spacePos = ' '; 
-          return true;
+        // Fast-Fail: Check the first character in Flash before executing strcmp_P
+        char firstChar = pgm_read_byte(_commands[ndx].commandStr);
+        if (firstChar == _inputBuffer[0]) {
+          // Exact match check
+          if (strcmp_P(_inputBuffer, (PGM_P)_commands[ndx].commandStr) == 0) {
+            _functionSelected = _commands[ndx].functionPtr;
+            
+            // Restore the space so getParam() still works
+            if (spacePos != nullptr) *spacePos = ' '; 
+            return true;
+          }
         }
         ndx++;
       }
@@ -283,14 +303,10 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
 
     Stream *_device = nullptr;        ///< Address to input stream.
     uint8_t _bufferIndex = 0;         ///< Current position in _inputBuffer; persists between calls for non-blocking reads.
-    bool _discarding = false;         ///< State used to ignore characters after an overflow until END_MARKER.
-
-    bool _inputValid = false;         ///< State of input buffer fitting entirely within the _inputBuffer.
+    uint8_t _flags = 0;               ///< Bitfield storing parser state (FLAG_DISCARDING, FLAG_INPUT_VALID) to minimize SRAM.
     char _inputBuffer[BUFFER_SIZE] = {0}; ///< Input buffer address for stream input. Stored statically (Zero-Heap).
-
-    const __FlashStringHelper *_commandList[MAX_COMMANDS] = {nullptr}; ///< List of addresses for registered command strings stored in flash.
-    func_ptr_t _functionList[MAX_COMMANDS] = {nullptr};                ///< List of addresses for registered functions.
-    func_ptr_t _functionSelected = nullptr;                            ///< Selected function to be run with runSelectedCommand().
+    CommandRecord _commands[MAX_COMMANDS] = {}; ///< Array of structs for better cache locality.
+    func_ptr_t _functionSelected = nullptr;     ///< Selected function to be run with runSelectedCommand().
 };
 
 #endif /* SERIALCOMMANDCOORDINATOR_h */
