@@ -41,6 +41,10 @@ void handleJog() {
   runManualJog();
 }
 
+void handleHelp() {
+  scc.printCommandList();
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -55,6 +59,9 @@ void setup() {
 
   // TEST 6: Interactive Command
   scc.registerCommand(F("jog"), handleJog);
+
+  // TEST 8: Print Command List
+  scc.registerCommand(F("help"), handleHelp);
 
   Serial.println(F("SYSTEM_READY"));
 }

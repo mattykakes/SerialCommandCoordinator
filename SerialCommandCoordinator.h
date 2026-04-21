@@ -2,7 +2,7 @@
  * @file SerialCommandCoordinator.h
  * @author Matthew Miller
  * @brief A memory-efficient, non-blocking serial command dispatcher for Arduino.
- * @version 0.1.0
+ * @version 0.1.1
  * * MIT License
  * (c) 2023 Matthew Miller
 **/

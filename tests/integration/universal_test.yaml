@@ -40,3 +40,12 @@ steps:
   - wait-serial: 'MODE:MAIN'
   - write-serial: "ping\n"
   - wait-serial: 'PONG'
+
+  # 8. Test Command List Output
+  # Triggers printCommandList() and verifies all registered commands are dumped in order.
+  - write-serial: "help\n"
+  - wait-serial: 'ping'
+  - wait-serial: 'set-limit'
+  - wait-serial: 'status'
+  - wait-serial: 'jog'
+  - wait-serial: 'help'
