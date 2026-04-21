@@ -68,7 +68,7 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
       }
       
       // find next empty spot in list
-      int ndx = 0;
+      uint8_t ndx = 0;
       while (ndx < MAX_COMMANDS) {
         if (_commandList[ndx] == nullptr) break;
 
@@ -261,7 +261,7 @@ bool registerCommand(const __FlashStringHelper *command, void (*function)(void))
       char* spacePos = strchr(_inputBuffer, ' ');
       if (spacePos != nullptr) *spacePos = '\0';
 
-      int ndx = 0;
+      uint8_t ndx = 0;
       while (ndx < MAX_COMMANDS && _inputValid) {
         if (_commandList[ndx] == nullptr) break;
 
