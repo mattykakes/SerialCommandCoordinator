@@ -1,3 +1,5 @@
+This library is available through the [Arduino Library Manager](https://docs.arduino.cc/libraries/serialcommandcoordinator/)!
+
 ## How it Works
 The **SerialCommandCoordinator** maps serial string commands to function addresses without using the heap, making it ideal for memory-constrained environments like the ATmega328P. 
 
